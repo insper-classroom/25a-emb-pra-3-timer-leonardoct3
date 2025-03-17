@@ -30,6 +30,7 @@ void gpio_callback(uint gpio, uint32_t events) {
     if (gpio == ECHO_PIN) {
         if (events & GPIO_IRQ_EDGE_RISE) {
             time_start = to_us_since_boot(get_absolute_time());
+            echo_flag = 0;
         } else if (events & GPIO_IRQ_EDGE_FALL) {
             time_end = to_us_since_boot(get_absolute_time());
             echo_flag = 1;
@@ -48,6 +49,10 @@ void print_rtc_time() {
 }
 
 void trigger_sensor() {
+    if (gpio_get(ECHO_PIN)) {
+        echo_flag = 0;
+        return;
+    }
     gpio_put(TRIGGER_PIN, 1);
     sleep_us(10);
     gpio_put(TRIGGER_PIN, 0);
@@ -135,18 +140,18 @@ int main() {
     
             if (!echo_flag) {
                 printf("Erro no sensor!\n");
+                trigger_sensor();
                 add_repeating_timer_ms(1000, alarm_callback, NULL, &timer_r);
                 continue;
             }
-
-            trigger_sensor();
     
             int delta_T = time_end - time_start;
             float cm = (delta_T / 2.0f) * 0.0343f;
-    
+ 
             print_rtc_time();
             printf("Distância medida: %.2f cm\n", cm);
     
+            trigger_sensor();
             add_repeating_timer_ms(1000, alarm_callback, NULL, &timer_r);
         }
     }
